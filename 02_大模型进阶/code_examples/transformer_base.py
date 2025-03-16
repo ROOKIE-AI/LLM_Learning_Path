@@ -7,7 +7,7 @@ Transformer基础实现
 本代码实现了Transformer模型的核心组件:
 1. 多头自注意力机制 (Multi-Head Self-Attention)
 2. 位置编码 (Positional Encoding)
-3. 前馈神经网络 (Feed-Forward Network)
+3. 基于位置的前馈神经网络 (Feed-Forward Network)
 4. Transformer编码器和解码器
 5. 简单的翻译任务示例
 """
@@ -39,6 +39,10 @@ print(f"Using device: {device}")
 class PositionalEncoding(nn.Module):
     """
     位置编码实现
+    
+    位置编码用于将序列中的位置信息编码为向量，使模型能够感知序列中元素的位置。
+    通过使用不同频率的正弦和余弦函数，为序列中的每个位置生成唯一的编码。
+    这种编码方式使得模型能够理解序列中元素的相对位置关系，从而更好地处理序列数据。
     """
     def __init__(self, d_model, max_seq_length=5000):
         """
@@ -69,8 +73,14 @@ class PositionalEncoding(nn.Module):
         return x + self.pe[:, :x.size(1), :]
 
 
-# 多头注意力机制实现
 class MultiHeadAttention(nn.Module):
+    """
+    多头注意力机制
+    
+    多头注意力机制是一种用于处理序列数据的注意力机制。
+    它将输入的特征转换为多个头，每个头都有自己的注意力机制，从而提高模型的表达能力。
+    多头注意力机制在Transformer模型中用于将输入的特征转换为输出特征。
+    """
     def __init__(self, d_model, num_heads, dropout=0.1):
         """
         初始化多头注意力机制
@@ -109,14 +119,19 @@ class MultiHeadAttention(nn.Module):
         
         # 应用掩码（如果提供）
         if mask is not None:
-            scores = scores.masked_fill(mask == 0, -1e9)
+            scores = scores.masked_fill(mask == 0, -1e9) # 将mask中值为0的位置填充为-1e9
         
         # 应用softmax获取注意力权重
-        attention_weights = F.softmax(scores, dim=-1)
-        attention_weights = self.dropout(attention_weights)
+        """
+        softmax公式: softmax(x_i) = exp(x_i) / sum_j(exp(x_j))
+        在scores的最后一个维度上应用softmax，确保每行的权重和为1
+        这里使用PyTorch的F.softmax函数，它会自动处理数值稳定性问题
+        """
+        attention_weights = F.softmax(scores, dim=-1) # 对scores应用softmax函数，得到注意力权重
+        attention_weights = self.dropout(attention_weights) # 将注意力权重通过dropout层
         
         # 计算输出
-        output = torch.matmul(attention_weights, V)
+        output = torch.matmul(attention_weights, V) # 将注意力权重与值矩阵相乘，得到输出
         
         return output, attention_weights
     
@@ -181,8 +196,14 @@ class MultiHeadAttention(nn.Module):
         return output, attention_weights
 
 
-# 前馈神经网络实现
 class FeedForward(nn.Module):
+    """
+    基于位置的前馈神经网络
+
+    基于位置的前馈神经网络是一种全连接的神经网络，用于将输入的特征转换为输出特征。
+    它由多个线性层和激活函数组成，可以学习输入特征的非线性关系。
+    前馈神经网络在Transformer模型中用于将编码器和解码器的输出转换为最终的输出。
+    """
     def __init__(self, d_model, d_ff, dropout=0.1):
         """
         初始化前馈神经网络
@@ -205,8 +226,14 @@ class FeedForward(nn.Module):
         return self.linear2(self.dropout(F.relu(self.linear1(x)))) # 将输入的x张量通过线性层和dropout层，然后通过relu激活函数，最后通过线性层投影为d_model维度的张量    
 
 
-# 编码器层实现
 class EncoderLayer(nn.Module):
+    """
+    编码器层
+
+    编码器层是Transformer模型中的一个重要组成部分，用于将输入的特征转换为输出特征。
+    它由一个多头注意力机制和一个前馈神经网络组成，可以学习输入特征的非线性关系。
+    编码器层在Transformer模型中用于将输入的特征转换为输出特征。
+    """
     def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
         """
         初始化编码器层
@@ -219,7 +246,7 @@ class EncoderLayer(nn.Module):
         super(EncoderLayer, self).__init__()
         
         self.self_attn = MultiHeadAttention(d_model, num_heads, dropout) # 创建一个多头注意力机制
-        self.feed_forward = FeedForward(d_model, d_ff, dropout) # 创建一个前馈神经网络
+        self.feed_forward = FeedForward(d_model, d_ff, dropout) # 创建一个基于位置的前馈神经网络
         
         self.norm1 = nn.LayerNorm(d_model) # 创建一个形状为(d_model)的层归一化层
         self.norm2 = nn.LayerNorm(d_model) # 创建一个形状为(d_model)的层归一化层
@@ -244,8 +271,10 @@ class EncoderLayer(nn.Module):
         return x
 
 
-# 解码器层实现
 class DecoderLayer(nn.Module):
+    """
+    解码器层
+    """
     def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
         """
         初始化解码器层
@@ -291,11 +320,13 @@ class DecoderLayer(nn.Module):
         ff_output = self.feed_forward(x) # 计算前馈神经网络
         x = self.norm3(x + self.dropout(ff_output)) # 将输入的x张量加上前馈神经网络输出，然后通过层归一化
         
-        return x
+        return x   
 
 
-# 完整编码器实现
 class Encoder(nn.Module):
+    """
+    编码器
+    """
     def __init__(self, num_layers, d_model, num_heads, d_ff, dropout=0.1):
         """
         初始化编码器
@@ -330,8 +361,11 @@ class Encoder(nn.Module):
         return self.norm(x) # 将输入的x张量通过层归一化
 
 
-# 完整解码器实现
+
 class Decoder(nn.Module):
+    """
+    解码器
+    """
     def __init__(self, num_layers, d_model, num_heads, d_ff, dropout=0.1):
         """
         初始化解码器
@@ -356,7 +390,12 @@ class Decoder(nn.Module):
             x: 输入张量，形状 [batch_size, seq_length, d_model]
             enc_output: 编码器输出，形状 [batch_size, src_seq_length, d_model]
             src_mask: 源序列掩码，形状 [batch_size, 1, 1, src_seq_length]
+                      用于在注意力计算中遮蔽填充位置(padding), 防止模型关注无意义的填充标记
+                      通常在源序列中, 1表示需要关注的位置, 0表示需要遮蔽的位置(如填充标记)
             tgt_mask: 目标序列掩码，形状 [batch_size, 1, tgt_seq_length, tgt_seq_length]
+                      有两个作用:
+                      1) 类似src_mask, 遮蔽填充位置
+                      2) 实现自回归特性, 通过上三角矩阵确保当前位置只能看到之前的位置, 防止信息泄露, 这对于训练阶段至关重要, 确保模型不会"偷看"未来的标记
         """
         x = self.positional_encoding(x) # 将输入的x张量加上位置编码
         x = self.dropout(x) # 将输入的x张量通过dropout层
@@ -367,8 +406,14 @@ class Decoder(nn.Module):
         return self.norm(x) # 将输入的x张量通过层归一化
 
 
-# 完整Transformer模型
 class Transformer(nn.Module):
+    """
+    Transformer模型
+
+    Transformer模型是一种用于处理序列数据的神经网络模型。
+    它由一个编码器和一个解码器组成，可以学习输入特征的非线性关系。
+    Transformer模型在自然语言处理领域中广泛应用，如机器翻译、文本分类、情感分析等。
+    """
     def __init__(self, src_vocab_size, tgt_vocab_size, d_model=512, num_heads=8, num_layers=6, d_ff=2048, dropout=0.1):
         """
         初始化Transformer模型
@@ -449,11 +494,10 @@ def create_masks(src, tgt=None):
     return src_mask
 
 
-# 可视化位置编码
 def visualize_positional_encoding():
-    """Visualize positional encoding"""
+    """可视化位置编码"""
     print("\n" + "="*50)
-    print("Positional Encoding Visualization")
+    print("位置编码可视化")
     print("="*50)
     
     # 创建位置编码对象
@@ -474,11 +518,10 @@ def visualize_positional_encoding():
     plt.show() # 显示图像
 
 
-# 可视化自注意力
 def visualize_self_attention():
-    """Visualize self-attention mechanism"""
+    """可视化自注意力机制"""
     print("\n" + "="*50)
-    print("Self-Attention Visualization")
+    print("自注意力机制可视化")
     print("="*50)
     
     # 创建一个简单的自注意力层
@@ -504,11 +547,10 @@ def visualize_self_attention():
     plt.show() # 显示图像
 
 
-# 演示Transformer的核心功能
 def demonstrate_transformer():
-    """Demonstrate core functionality of Transformer"""
+    """演示Transformer的核心功能"""
     print("\n" + "="*50)
-    print("Transformer Demonstration")
+    print("Transformer演示")
     print("="*50)
     
     # 创建一个小型Transformer
@@ -520,12 +562,12 @@ def demonstrate_transformer():
     d_ff = 512 # 前馈神经网络的中间维度
     
     transformer = Transformer(
-        src_vocab_size, 
-        tgt_vocab_size, 
-        d_model, 
-        num_heads, 
-        num_layers, 
-        d_ff
+        src_vocab_size,  # 源词汇表大小
+        tgt_vocab_size,  # 目标词汇表大小
+        d_model,  # 模型维度
+        num_heads,  # 头数
+        num_layers,  # 层数
+        d_ff  # 前馈神经网络的中间维度
     ).to(device) # 将输入的transformer张量通过设备
     
     # 打印模型结构
@@ -552,8 +594,12 @@ def demonstrate_transformer():
     print(f"输出第一个样本的第一个时间步的前5个logits: {output[0, 0, :5]}") # 打印输出第一个样本的第一个时间步的前5个logits
 
 
-# 构建一个简单的翻译数据集
 class SimpleTranslationDataset(Dataset):
+    """
+    创建一个简单的数学表达式翻译数据集
+    英文：'1 plus 2 equals 3'
+    中文：'1 加 2 等于 3'
+    """
     def __init__(self, size=1000, max_length=10):
         """
         创建一个简单的数学表达式翻译数据集
@@ -657,11 +703,10 @@ class SimpleTranslationDataset(Dataset):
         return torch.tensor(self.data[idx][0]), torch.tensor(self.data[idx][1])
 
 
-# 训练Transformer模型
 def train_simple_transformer():
-    """Train a simple Transformer translation model"""
+    """训练一个简单的Transformer翻译模型"""
     print("\n" + "="*50)
-    print("Training Simple Translation Task")
+    print("训练简单的翻译任务")
     print("="*50)
     
     # 创建数据集和数据加载器
@@ -781,11 +826,10 @@ def train_simple_transformer():
     return model, dataset
 
 
-# 展示翻译结果
 def show_translation_examples(model, dataset, num_examples=5):
-    """Show translation examples"""
+    """展示翻译示例"""
     print("\n" + "="*50)
-    print("Translation Examples")
+    print("翻译示例")
     print("="*50)
     
     model.eval()
@@ -821,9 +865,9 @@ def show_translation_examples(model, dataset, num_examples=5):
 
 
 def main():
-    """Main function"""
+    """主函数"""
     print("\n" + "*"*70)
-    print("*" + " "*25 + "Transformer Implementation" + " "*24 + "*")
+    print("*" + " "*25 + "Transformer实现" + " "*24 + "*")
     print("*"*70)
     
     # 可视化位置编码
