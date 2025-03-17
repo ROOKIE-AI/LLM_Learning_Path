@@ -233,195 +233,28 @@ T5（Text-to-Text Transfer Transformer）将所有NLP任务统一为文本到文
 - 预训练任务：带噪声的跨度掩码
 - 统一的文本到文本框架，简化了迁移学习
 
-## 5. Transformer在Web应用中的实现与优化
 
-### 5.1 在Web前端使用Transformer模型
+## 5. 前沿研究方向
 
-#### 5.1.1 基于TensorFlow.js的实现
-
-使用TensorFlow.js可以在浏览器中运行Transformer模型：
-
-```javascript
-// 加载预训练的模型
-async function loadModel() {
-  const model = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/transformer_model/model.json');
-  return model;
-}
-
-// 使用模型进行推理
-async function generateText(input, model) {
-  const inputTensor = tf.tensor2d([input]);
-  const output = model.predict(inputTensor);
-  return output;
-}
-```
-
-#### 5.1.2 基于ONNX Runtime Web的实现
-
-ONNX Runtime Web支持在浏览器中高效运行优化的Transformer模型：
-
-```javascript
-import * as ort from 'onnxruntime-web';
-
-async function runTransformerModel() {
-  const session = await ort.InferenceSession.create('model.onnx');
-  
-  const input = new ort.Tensor('float32', inputData, inputShape);
-  const feeds = { input_ids: input };
-  
-  const outputMap = await session.run(feeds);
-  const output = outputMap.output_0;
-  
-  return output;
-}
-```
-
-### 5.2 Web环境下的模型优化技术
-
-#### 5.2.1 模型量化
-
-在Web环境中，模型量化可显著减小模型大小和推理时间：
-
-```javascript
-// 加载量化模型
-async function loadQuantizedModel() {
-  const modelOptions = {
-    quantized: true,
-  };
-  return await tf.loadLayersModel('model_quantized.json', modelOptions);
-}
-```
-
-#### 5.2.2 模型剪枝
-
-移除模型中不重要的权重，减小模型大小：
-
-```javascript
-// 加载剪枝后的模型
-async function loadPrunedModel() {
-  return await tf.loadLayersModel('model_pruned.json');
-}
-```
-
-#### 5.2.3 渐进式加载
-
-分块加载模型以优化Web体验：
-
-```javascript
-async function progressiveLoadModel() {
-  const modelPath = 'model.json';
-  const loadOptions = {
-    fetchFunc: fetchWithProgress,
-    onProgress: (progress) => {
-      updateLoadingBar(progress);
-    }
-  };
-  return await tf.loadLayersModel(modelPath, loadOptions);
-}
-```
-
-### 5.3 Web应用中的Transformer最佳实践
-
-#### 5.3.1 客户端-服务器协同推理
-
-将Transformer模型的计算分配到客户端和服务器之间：
-
-```javascript
-async function hybridInference(input) {
-  // 客户端处理
-  const embeddingResult = await clientModel.generateEmbedding(input);
-  
-  // 服务器处理
-  const response = await fetch('/api/inference', {
-    method: 'POST',
-    body: JSON.stringify({ embedding: embeddingResult }),
-    headers: { 'Content-Type': 'application/json' }
-  });
-  
-  return await response.json();
-}
-```
-
-#### 5.3.2 WebWorker并行处理
-
-使用WebWorker在后台线程处理Transformer模型计算：
-
-```javascript
-// 主线程
-const worker = new Worker('transformer-worker.js');
-
-worker.postMessage({
-  action: 'process',
-  input: userInput
-});
-
-worker.onmessage = function(e) {
-  const result = e.data.output;
-  updateUI(result);
-};
-
-// worker线程 (transformer-worker.js)
-self.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest');
-
-let model;
-
-self.onmessage = async function(e) {
-  if (e.data.action === 'process') {
-    if (!model) {
-      model = await tf.loadLayersModel('model.json');
-    }
-    
-    const result = await model.predict(tf.tensor(e.data.input));
-    self.postMessage({ output: result });
-  }
-};
-```
-
-#### 5.3.3 缓存与预加载策略
-
-优化Transformer模型在Web应用中的加载时间：
-
-```javascript
-// 预加载模型
-document.addEventListener('DOMContentLoaded', () => {
-  // 在页面加载时预热模型
-  preloadModel();
-});
-
-async function preloadModel() {
-  // 使用Service Worker缓存模型
-  if ('serviceWorker' in navigator) {
-    try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('Service worker registered for model caching');
-    } catch (error) {
-      console.error('Service worker registration failed:', error);
-    }
-  }
-}
-```
-
-## 6. 前沿研究方向
-
-### 6.1 Efficient Attention
+### 5.1 Efficient Attention
 
 研究更高效的注意力机制变体，如线性注意力、局部注意力等，以提高Web环境下的性能。
 
-### 6.2 蒸馏与压缩
+### 5.2 蒸馏与压缩
 
-研究将大型Transformer模型知识蒸馏到小型模型的方法，使其更适合Web部署。
+研究将大型Transformer模型知识蒸馏到小型模型的方法
 
-### 6.3 持续学习
+### 5.3 持续学习
 
 探索在Web环境中使Transformer模型能够从用户交互中持续学习和改进的方法。
 
-## 7. 实践演练
+## 6. 实践演练
 
 1. 构建一个基于Web的简单文本生成应用，使用Transformer模型
 2. 实现一个在浏览器中运行的情感分析应用
 3. 使用WebGL加速在Web环境中的Transformer计算
 
-## 8. 学习资源
+## 7. 学习资源
 
 - [Transformer论文解读](https://arxiv.org/abs/1706.03762)
 - [TensorFlow.js官方文档](https://www.tensorflow.org/js)
@@ -429,6 +262,13 @@ async function preloadModel() {
 - [The Illustrated Transformer](http://jalammar.github.io/illustrated-transformer/)
 - [WebML案例研究](https://www.tensorflow.org/js/demos)
 
-## 9. 总结
+## 8. 总结
 
-Transformer架构已经成为现代大语言模型的基础，理解其内部工作原理和在Web环境中的优化技术，对于开发高性能的Web AI应用至关重要。随着Web技术和硬件加速的不断进步，在浏览器中运行复杂的Transformer模型已经成为可能，为Web开发者提供了构建智能Web应用的强大工具。 
+Transformer架构已经成为现代大语言模型的基础，其自注意力机制和并行计算能力彻底改变了自然语言处理领域。通过本章学习，我们深入理解了：
+
+- Transformer的核心组件：多头自注意力机制、位置编码和前馈神经网络
+- 编码器-解码器架构如何处理序列到序列的转换任务
+- BERT、GPT和T5等主流模型如何基于Transformer架构构建
+- Web环境下Transformer的优化方向和实践应用
+
+随着计算能力的提升和算法的改进，Transformer架构将继续推动大模型技术在Web环境中的应用与创新，为用户提供更智能、更自然的交互体验。掌握Transformer原理，是理解和应用现代AI技术的关键一步。
