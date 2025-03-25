@@ -14,7 +14,7 @@ class APIKeyManager:
         Args:
             config_file: 配置文件路径，默认为用户主目录下的.langchain_config.json
         """
-        self.config_file = config_file or Path.home() / ".langchain_config.json"
+        self.config_file = Path(config_file) if config_file else Path.home() / ".langchain_config.json"
     
     def encrypt_api_key(self, api_key, encryption_key):
         """加密API密钥"""
